@@ -1,0 +1,230 @@
+APEXPLANET INTERNSHIP — TASK 4 NOTES
+EXPLOITATION & SYSTEM SECURITY
+
+These are my practical notes from the Metasploitable 2 penetration-testing work.
+Testing was done only inside the local Host-Only lab.
+
+
+LAB SETUP
+---------
+
+Attacker:
+Kali Linux
+IP: 192.168.56.101
+
+Target:
+Metasploitable 2
+IP: 192.168.56.102
+
+Network:
+Host-Only
+
+Main tools used:
+- Nmap
+- Metasploit Framework
+- Meterpreter
+
+
+1. RECON / TARGET CHECK
+-----------------------
+
+Target IP:
+192.168.56.102
+
+First checked that the target was reachable from Kali.
+
+The target was on the same Host-Only network as Kali, so the testing stayed
+inside the isolated lab.
+
+
+2. NMAP SCAN
+------------
+
+Used Nmap service/version detection to see what was running on the target.
+
+Command:
+
+nmap -sV 192.168.56.102
+
+The scan showed many open services because Metasploitable 2 is intentionally
+vulnerable.
+
+Important results noticed:
+
+21/tcp    FTP       vsftpd 2.3.4
+22/tcp    SSH       OpenSSH 4.7p1
+23/tcp    Telnet
+25/tcp    SMTP
+53/tcp    DNS
+80/tcp    HTTP      Apache 2.2.8
+139/tcp   NetBIOS
+445/tcp   Samba
+1524/tcp  bindshell
+3306/tcp  MySQL
+5432/tcp  PostgreSQL
+5900/tcp  VNC
+6667/tcp  IRC
+8180/tcp  Tomcat
+
+The main service selected for exploitation was:
+
+FTP — vsftpd 2.3.4 — port 21
+
+Reason:
+This version has a known backdoor vulnerability and Metasploit has a module
+for testing it.
+
+
+
+3. METASPLOIT EXPLOITATION
+--------------------------
+
+Started Metasploit:
+
+msfconsole
+
+Selected the vsftpd 2.3.4 backdoor module:
+
+use exploit/unix/ftp/vsftpd_234_backdoor
+
+Set the target:
+
+set RHOSTS 192.168.56.102
+
+FTP port:
+
+set RPORT 21
+
+Then:
+
+exploit
+
+Result:
+The vulnerable FTP banner was detected and the backdoor was successfully
+triggered.
+
+A Meterpreter session was opened.
+
+Important:
+The exploitation was performed only against my Metasploitable 2 VM in the
+controlled Host-Only lab.
+
+
+4. METERPRETER / POST-EXPLOITATION
+----------------------------------
+
+After getting the Meterpreter session, checked the target system:
+
+sysinfo
+
+This confirmed information about the compromised Linux system.
+
+Then initially tried:
+
+hashdump
+
+The command required the `priv` extension.
+
+Tried:
+
+load priv
+
+This did not work because the current session was a Linux Meterpreter session
+and the `priv` extension was not supported for this session.
+
+Instead, used the Linux post-exploitation hashdump module.
+
+Backgrounded the session and selected:
+
+use post/linux/gather/hashdump
+
+Set the existing session:
+
+set SESSION 1
+
+Then:
+
+run
+
+Result:
+The module completed successfully and returned Linux password hash information.
+
+
+5. WHAT THE EXPLOIT SHOWED
+--------------------------
+
+The Nmap scan showed that the target had many exposed services.
+
+The vsftpd version gave a specific vulnerability to investigate.
+
+The Metasploit exploit successfully converted that service-level vulnerability
+into a Meterpreter session.
+
+After access was obtained, system information and password hash information
+could be collected.
+
+Main flow:
+
+Nmap
+  ↓
+vsftpd 2.3.4 identified
+  ↓
+Metasploit
+  ↓
+vsftpd backdoor exploited
+  ↓
+Meterpreter session
+  ↓
+sysinfo
+  ↓
+Linux hashdump
+
+
+6. IMPORTANT FINDINGS
+---------------------
+
+vsftpd 2.3.4:
+- Vulnerable FTP service.
+- Successfully exploited.
+- Meterpreter session obtained.
+
+Network exposure:
+- Many services were open on the target.
+- More exposed services means a larger attack surface.
+
+Password hashes:
+- Linux password hashes were obtained during post-exploitation.
+- Credential protection is therefore important after an initial compromise.
+
+
+7. MITIGATION NOTES
+-------------------
+
+For a real system:
+
+- Remove or upgrade vulnerable versions of vsftpd.
+- Disable FTP if it is not required.
+- Use SFTP where secure file transfer is needed.
+- Restrict unnecessary services using firewall rules.
+- Keep systems and services patched.
+- Regularly scan for vulnerable software.
+- Protect password and credential stores.
+- Monitor service and authentication logs.
+- Use network segmentation to limit the impact of a compromise.
+
+
+
+9. FINAL OBSERVATION
+--------------------
+
+The practical showed the full basic penetration-testing flow:
+
+Recon → Scanning → Vulnerability Identification → Exploitation →
+Post-Exploitation → Reporting
+
+The main lesson from the practical was that an outdated vulnerable service can
+become an entry point into a system. Once access is obtained, additional system
+information and credential-related data may become accessible.
+
+All testing was performed against the intentionally vulnerable Metasploitable 2
+machine in the isolated local lab.
